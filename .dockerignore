@@ -1,0 +1,17 @@
+__pycache__/
+*/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+keys/
+gcs-key.json
+*.db
+.vscode/
+.idea/
+.venv/
+env/
+venv/
+.dist-info/
+build/
+dist/
