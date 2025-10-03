@@ -1,4 +1,3 @@
-# --- база ---
 FROM python:3.10-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -18,12 +17,10 @@ RUN pip install -r /tmp/requirements.txt
 WORKDIR /app
 COPY . /app
 
-RUN python - <<PY
-from transformers import CLIPModel, CLIPProcessor
-CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
-print("Model cached")
-PY
+RUN python -c "from transformers import CLIPModel, CLIPProcessor; \
+CLIPModel.from_pretrained('openai/clip-vit-base-patch32'); \
+CLIPProcessor.from_pretrained('openai/clip-vit-base-patch32'); \
+print('Model cached')"
 
 EXPOSE 8080
 
