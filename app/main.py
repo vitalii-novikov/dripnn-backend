@@ -43,7 +43,11 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Google Cloud Storage
 BUCKET_NAME = os.getenv("GCS_BUCKET_NAME")
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.abspath(os.getenv("GOOGLE_APPLICATION_CREDENTIALS"))
+
+gcs_key = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+if gcs_key:
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.abspath(gcs_key)
+
 storage_client = storage.Client()
 bucket = storage_client.bucket(BUCKET_NAME)
 
