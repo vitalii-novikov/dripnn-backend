@@ -11,12 +11,13 @@ python-dotenv==1.0.1
 torch==2.3.1
 torchvision==0.18.1
 transformers==4.44.2
+Pillow
 
 # Google Cloud 
 google-cloud-sqlcommenter==2.0.0
+google-cloud-storage
 
 # Utils
 python-multipart==0.0.9
 pydantic==2.9.2
-
 

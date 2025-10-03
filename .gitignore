@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+*.db
+
+# Virtual environments
+.venv/
+env/
+venv/
+ENV/
+fashion-app/
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Env files
+.env
+.env.*
+
+# Google Cloud credentials
+keys/gcs-key.json
+gcs-key.json
+
+# Byte-compiled / cache
+*.egg-info/
+.eggs/
+*.egg
+
+# Coverage / test
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+.mypy_cache/
+
+# Build
+build/
+dist/
