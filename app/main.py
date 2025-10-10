@@ -65,17 +65,54 @@ app = FastAPI(title="Fashion Recommender API")
 router = APIRouter()
 
 
-# --- 1) GET ITEMS ---
+# --- 1) GET ITEMS (base version) ---
 @router.get("/items")
 def get_items():
     with SessionLocal() as db:
         query = text("""
             SELECT id, name, url, style1, style2, category, type, baseColour, season
             FROM item_unitary
-            ORDER BY create_dttm DESC
-            LIMIT 100;
+            LIMIT 10;
         """)
         result = db.execute(query).mappings().all()
+        return {"items": [dict(row) for row in result]}
+
+
+# --- 1b) GET FILTERED ITEMS ---
+@router.get("/filtered-items")
+def get_filtered_items(
+    gender: str = Query(None, description="Male or Female"),
+    category: str = Query(None, description="Topwear or Bottomwear"),
+    season: str = Query(None, description="Fall, Summer, Winter, or Spring"),
+    ):
+    """
+    Возвращает до 10 вещей, отфильтрованных по gender, category и season.
+    Любой из параметров можно не указывать — тогда фильтр по нему не применяется.
+    """
+    filters = []
+    params = {}
+
+    if gender:
+        filters.append("gender = :gender")
+        params["gender"] = gender
+    if category:
+        filters.append("category = :category")
+        params["category"] = category
+    if season:
+        filters.append("season = :season")
+        params["season"] = season
+
+    where_clause = "WHERE " + " AND ".join(filters) if filters else ""
+    sql = text(f"""
+        SELECT id, name, url, style1, style2, category, type, baseColour, season
+        FROM item_unitary
+        {where_clause}
+        ORDER BY RANDOM()
+        LIMIT 10;
+    """)
+
+    with SessionLocal() as db:
+        result = db.execute(sql, params).mappings().all()
         return {"items": [dict(row) for row in result]}
 
 
