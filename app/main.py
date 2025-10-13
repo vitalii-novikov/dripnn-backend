@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Form, Query
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
@@ -13,8 +13,8 @@ from transformers import CLIPProcessor, CLIPModel
 # Load env variables
 load_dotenv()
 
-print("DEBUG:", os.getenv("GOOGLE_APPLICATION_CREDENTIALS"))
-print("DEBUG:", os.path.exists("keys/gcs-key.json"))
+print("DEBUG: GOOGLE_APPLICATION_CREDENTIALS - ", os.getenv("GOOGLE_APPLICATION_CREDENTIALS"))
+print("DEBUG: keys/gcs-key.json - ", os.path.exists("keys/gcs-key.json"))
 
 # Database config
 DB_USER = os.getenv("DB_USER", "postgres")
