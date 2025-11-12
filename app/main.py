@@ -10,6 +10,7 @@ import io
 import torch
 from transformers import CLIPProcessor, CLIPModel
 import wandb
+import weave
 
 # --- Load env variables ---
 load_dotenv()
@@ -24,6 +25,8 @@ wandb_run_name = os.getenv("WANDB_RUN_NAME", None)
 wandb_mode = os.getenv("WANDB_MODE", "offline")
 
 wandb_run = wandb.init(project=wandb_project, entity=wandb_entity, name=wandb_run_name, mode=wandb_mode)
+
+weave.init("fashion-recommender")
 
 # --- Database config ---
 DB_USER = os.getenv("DB_USER", "postgres")
@@ -144,6 +147,15 @@ def post_feedback(item_id: int = Form(...), user_id: int = Form(...), feedback: 
 
     return {"status": "success", "item_id": item_id, "user_id": user_id, "feedback": feedback}
 
+
+@weave.op()
+def clip_inference(image: Image.Image, styles: list[str]):
+    inputs = clip_processor(text=styles, images=image, return_tensors="pt", padding=True)
+    with torch.no_grad():
+        outputs = clip_model(**inputs)
+        logits = outputs.logits_per_image.softmax(dim=1).cpu().numpy()[0]
+    return logits
+
 # --- 3) POST EMBEDDINGS (main CLIP inference endpoint) ---
 @router.post("/embeddings")
 async def post_embeddings(file: UploadFile = File(...), user_id: int = Form(...)):
@@ -160,8 +172,7 @@ async def post_embeddings(file: UploadFile = File(...), user_id: int = Form(...)
         # --- CLIP processing (local inference) ---
         inputs = clip_processor(text=STYLES, images=image, return_tensors="pt", padding=True)
         with torch.no_grad():
-            outputs = clip_model(**inputs)
-            logits_per_image = outputs.logits_per_image.softmax(dim=1).cpu().numpy()[0]
+            logits_per_image = clip_inference(image, STYLES)
 
         # --- Get top-2 styles ---
         sorted_idx = logits_per_image.argsort()[::-1]
