@@ -13,12 +13,13 @@ torchvision==0.18.1
 transformers==4.44.2
 Pillow==10.0.0
 
-# Google Cloud 
+# Google Cloud
 google-cloud-sqlcommenter==2.0.0
 google-cloud-storage==3.4.0
 
 # Utils
 python-multipart==0.0.9
-#pydantic==2.9.2
+# pydantic==2.9.2
 
-
+# Experiment tracking
+wandb==0.18.3
