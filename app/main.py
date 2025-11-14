@@ -11,9 +11,14 @@ import torch
 from transformers import CLIPProcessor, CLIPModel
 import wandb
 import weave
+from pydantic import BaseModel
+from annoy import AnnoyIndex
+import json
+
 
 # --- Load env variables ---
 load_dotenv()
+
 
 print("DEBUG: GOOGLE_APPLICATION_CREDENTIALS - ", os.getenv("GOOGLE_APPLICATION_CREDENTIALS"))
 print("DEBUG: keys/gcs-key.json - ", os.path.exists("keys/gcs-key.json"))
@@ -74,11 +79,35 @@ STYLES = [
     "Streetwear", "Minimalist", "Home wear", "Trendy/Fashion-forward"
 ]
 
+
+
+INDEX_PATH = "/app/indexes/fashion_index.ann"
+META_PATH = "/app/indexes/metadata.json"
+
+# CLIP ViT-B/32 --> 512 dimensional embeddings
+EMB_DIM = 512
+
+print("Loading Annoy index...")
+ann_index = AnnoyIndex(EMB_DIM, "angular")
+ann_index.load(INDEX_PATH)
+print("Annoy index loaded.")
+
+print("Loading metadata...")
+with open(META_PATH, "r") as f:
+    metadata = json.load(f)
+print(f"Loaded metadata for {len(metadata)} items.")
+
+
 # --- FastAPI app setup ---
 app = FastAPI(title="Fashion Recommender API")
 router = APIRouter()
 
-# --- 1) GET ITEMS ---
+# --- Annoy index and metadata for recommendations ---
+class EmbeddingRequest(BaseModel):
+    embedding: list[float]
+    k: int = 10
+
+# --- GET ITEMS ---
 @router.get("/items")
 def get_items():
     with SessionLocal() as db:
@@ -123,7 +152,7 @@ def get_filtered_items(
         result = db.execute(sql, params).mappings().all()
         return {"items": [dict(row) for row in result]}
 
-# --- 2) POST FEEDBACK ---
+# --- POST FEEDBACK ---
 @router.post("/feedback")
 def post_feedback(item_id: int = Form(...), user_id: int = Form(...), feedback: str = Form(...)):
     if feedback not in ["like", "dislike"]:
@@ -156,7 +185,7 @@ def clip_inference(image: Image.Image, styles: list[str]):
         logits = outputs.logits_per_image.softmax(dim=1).cpu().numpy()[0]
     return logits
 
-# --- 3) POST EMBEDDINGS (main CLIP inference endpoint) ---
+# --- POST EMBEDDINGS (main CLIP inference endpoint) ---
 @router.post("/embeddings")
 async def post_embeddings(file: UploadFile = File(...), user_id: int = Form(...)):
     try:
@@ -170,9 +199,12 @@ async def post_embeddings(file: UploadFile = File(...), user_id: int = Form(...)
         image_url = f"https://storage.googleapis.com/{BUCKET_NAME}/{filename}"
 
         # --- CLIP processing (local inference) ---
-        inputs = clip_processor(text=STYLES, images=image, return_tensors="pt", padding=True)
+        image_inputs = clip_processor(images=image, return_tensors="pt")
         with torch.no_grad():
-            logits_per_image = clip_inference(image, STYLES)
+            image_features = clip_model.get_image_features(pixel_values=image_inputs["pixel_values"])
+            embedding = image_features[0].cpu().numpy().tolist()
+            
+        logits_per_image = clip_inference(image, STYLES)
 
         # --- Get top-2 styles ---
         sorted_idx = logits_per_image.argsort()[::-1]
@@ -182,8 +214,8 @@ async def post_embeddings(file: UploadFile = File(...), user_id: int = Form(...)
         # --- Save results in DB ---
         with SessionLocal() as db:
             query = text("""
-                INSERT INTO item_unitary (url, user_id, style1, style1_conf, style2, style2_conf)
-                VALUES (:url, :user_id, :style1, :style1_conf, :style2, :style2_conf)
+                INSERT INTO item_unitary (url, user_id, style1, style1_conf, style2, style2_conf, embedding)
+                VALUES (:url, :user_id, :style1, :style1_conf, :style2, :style2_conf, :embedding)
                 RETURNING id;
             """)
             result = db.execute(query, {
@@ -193,6 +225,7 @@ async def post_embeddings(file: UploadFile = File(...), user_id: int = Form(...)
                 "style1_conf": style1_conf,
                 "style2": style2,
                 "style2_conf": style2_conf,
+                "embedding": embedding,
             }).fetchone()
             db.commit()
 
@@ -214,12 +247,28 @@ async def post_embeddings(file: UploadFile = File(...), user_id: int = Form(...)
             "style1": style1,
             "style1_conf": style1_conf,
             "style2": style2,
-            "style2_conf": style2_conf
+            "style2_conf": style2_conf,
+            "embedding": embedding
         }
 
     except Exception as e:
         wandb.log({"error": str(e)})
         raise HTTPException(status_code=500, detail=str(e))
+
+# --- GET RECOMMENDATIONS BY EMBEDDING ---
+@app.post("/recommend")
+def recommend(req: EmbeddingRequest):
+    idxs, dists = ann_index.get_nns_by_vector(
+        req.embedding, req.k, include_distances=True
+    )
+
+    results = []
+    for idx, dist in zip(idxs, dists):
+        item = metadata[idx]
+        item["distance"] = float(dist)
+        results.append(item)
+
+    return {"recommendations": results}
 
 # --- Register router ---
 app.include_router(router)

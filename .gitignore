@@ -47,3 +47,6 @@ htmlcov/
 # Build
 build/
 dist/
+
+# wandb files
+wandb/

@@ -1,17 +1,25 @@
+# Ignore Python cache and virtual environments
 __pycache__/
-*/__pycache__/
 *.pyc
 *.pyo
 *.pyd
 .env
-keys/
-gcs-key.json
-*.db
-.vscode/
-.idea/
-.venv/
-env/
 venv/
-.dist-info/
-build/
-dist/
+.venv/
+*.log
+
+# Ignore local datasets and model weights
+models/
+checkpoints/
+wandb/
+weave/
+transformers_cache/
+cache/
+artifacts/
+
+# Ignore git and IDE files
+.git
+.gitignore
+.idea
+.vscode
+.DS_Store

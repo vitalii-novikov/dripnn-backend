@@ -1,18 +1,15 @@
 FROM python:3.10-slim
 
 # --- System config ---
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+# ENV PYTHONDONTWRITEBYTECODE=1
+# ENV PYTHONUNBUFFERED=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential gcc libpq-dev wget curl git libgl1 libglib2.0-0 \
   && rm -rf /var/lib/apt/lists/*
 
 # --- Python setup ---
-RUN python -m pip install --upgrade pip
-
-# --- Install PyTorch (CPU version) ---
-RUN pip install torch==2.3.1 torchvision==0.18.1 --index-url https://download.pytorch.org/whl/cpu
+# RUN python -m pip install --upgrade pip
 
 # --- Install requirements ---
 COPY requirements.txt /tmp/requirements.txt
