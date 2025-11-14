@@ -1,0 +1,25 @@
+services:
+  modelserver:
+    build:
+      context: ./model-server
+    ports:
+      - "8080:8080"  # inference API
+      - "8081:8081"  # management API
+    command: >
+      torchserve
+      --start
+      --model-store model-store
+      --models fashionclip= fashionclip.mar
+      --ncs
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./api
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    depends_on:
+      - modelserver
+    env_file:
+      - .env
