@@ -1,15 +1,21 @@
 services:
   model-server:
-    build: ./model-server
-    container_name: siglip-model-server
+    build:
+      context: ./model-server
+      dockerfile: Dockerfile
+    container_name: model-server
     ports:
       - "8080:8080"
       - "8081:8081"
 
   api:
-    build: ./api
-    container_name: siglip-api
-    ports:
-      - "8000:8000"
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: api
     depends_on:
       - model-server
+    ports:
+      - "8000:8000"
+    environment:
+      MODEL_SERVER_URL: "http://model-server:8080/predictions/siglip"

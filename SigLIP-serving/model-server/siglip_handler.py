@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+from PIL import Image
 from ts.torch_handler.base_handler import BaseHandler
 from transformers import AutoModel, AutoProcessor
 
@@ -8,14 +9,30 @@ STYLES = [
     "Minimalist", "Home wear", "Trendy/Fashion-forward"
 ]
 
-class SigLipHandler:
-    def __init__(self):
+class SigLipHandler(BaseHandler):
+    """
+    TorchServe handler for SigLIP style classification + embedding extraction.
+    """
+
+    def initialize(self, context):
+        super().initialize(context)
+
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model = AutoModel.from_pretrained("model-store").to(self.device)
-        self.processor = AutoProcessor.from_pretrained("model-store")
+        model_dir = self.model_dir  # TorchServe sets this to model artifact path
+
+        # Load model and processor directly from folder
+        self.model = AutoModel.from_pretrained(model_dir).to(self.device)
+        self.processor = AutoProcessor.from_pretrained(model_dir)
+
         self.model.eval()
 
-    def predict(self, image, image_id="unknown"):
+    def preprocess(self, data):
+        # Expecting raw image bytes from TorchServe
+        image_bytes = data[0].get("data") or data[0].get("body")
+        image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        return image
+
+    def inference(self, image, *args, **kwargs):
         inputs = self.processor(
             text=STYLES,
             images=image,
@@ -38,7 +55,6 @@ class SigLipHandler:
         embedding = image_embeds.squeeze(0).cpu().numpy().tolist()
 
         return {
-            "id": image_id,
             "main_style": main_style[0],
             "main_confidence": main_style[1],
             "secondary_style": secondary_style[0],
@@ -46,3 +62,6 @@ class SigLipHandler:
             "embedding_dim": len(embedding),
             "embedding": embedding
         }
+
+    def postprocess(self, inference_output):
+        return [inference_output]
