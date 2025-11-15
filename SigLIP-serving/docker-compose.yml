@@ -1,0 +1,15 @@
+services:
+  model-server:
+    build: ./model-server
+    container_name: siglip-model-server
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+
+  api:
+    build: ./api
+    container_name: siglip-api
+    ports:
+      - "8000:8000"
+    depends_on:
+      - model-server

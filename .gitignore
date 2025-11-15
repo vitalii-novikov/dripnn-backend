@@ -50,3 +50,6 @@ dist/
 
 # wandb files
 wandb/
+
+#large models
+SigLIP-serving/model-server/model-store/
