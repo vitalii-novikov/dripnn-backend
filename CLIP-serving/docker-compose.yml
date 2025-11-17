@@ -1,0 +1,21 @@
+version: "3.8"
+
+services:
+  model-server:
+    build: ./model-server
+    ports:
+      - "8080:8080"
+    environment:
+      - TS_AUTHORIZATION_TOKEN=mysecret123
+      - TS_ENABLE_METRICS=false
+      - TS_ENABLE_MANAGEMENT_API=false
+
+  api:
+    build: ./api
+    depends_on:
+      - model-server
+    ports:
+      - "8000:8000"
+    environment:
+      - TORCHSERVE_URL=http://model-server:8080/predictions/clip
+      - TORCHSERVE_TOKEN=mysecret123
