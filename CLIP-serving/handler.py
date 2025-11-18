@@ -4,6 +4,7 @@ from PIL import Image
 import numpy as np
 from transformers import CLIPModel, CLIPProcessor
 from ts.torch_handler.base_handler import BaseHandler
+import os
 
 STYLES = [
     "Casual", "Business Casual", "Formal", "Sport/Activewear",
@@ -12,7 +13,14 @@ STYLES = [
 
 class ClipHandler(BaseHandler):
     def initialize(self, ctx):
+        # Найти каталог модели с config.json
         model_dir = ctx.system_properties.get("model_dir")
+        for name in os.listdir(model_dir):
+            sub = os.path.join(model_dir, name)
+            if os.path.isdir(sub) and "config.json" in os.listdir(sub):
+                model_dir = sub
+                break
+
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = CLIPModel.from_pretrained(model_dir).to(self.device)
         self.processor = CLIPProcessor.from_pretrained(model_dir)
@@ -20,12 +28,15 @@ class ClipHandler(BaseHandler):
         self.initialized = True
 
     def preprocess(self, data):
-        # Берём файл из POST multipart
-        image_bytes = None
-        if "body" in data[0]:
-            image_bytes = data[0].get("body")
-        elif "data" in data[0]:
-            image_bytes = data[0].get("data")
+        item = data[0]
+
+        if "body" in item and isinstance(item["body"], (bytes, bytearray)):
+            image_bytes = item["body"]
+        elif "data" in item:
+            if isinstance(item["data"], dict) and "blob" in item["data"]:
+                image_bytes = item["data"]["blob"]
+            else:
+                image_bytes = item["data"]
         else:
             raise ValueError("No file found in request")
 
@@ -44,25 +55,30 @@ class ClipHandler(BaseHandler):
             image_features = outputs.image_embeds
             text_features = outputs.text_embeds
 
-            image_features /= image_features.norm(dim=-1, keepdim=True)
-            text_features /= text_features.norm(dim=-1, keepdim=True)
+            # Нормализация
+            image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+            text_features = text_features / text_features.norm(dim=-1, keepdim=True)
 
+            # Косинусное сходство
             sims = (image_features @ text_features.T).squeeze(0).cpu().numpy()
+            sims = sims.astype(float)  # гарантируем Python float для JSON
+
+            # softmax
             probs = np.exp(sims) / np.sum(np.exp(sims))
+            probs = probs.astype(float)
 
             top_idx = probs.argsort()[-2:][::-1]
-            main_style = (STYLES[top_idx[0]], float(round(probs[top_idx[0]]*100,2)))
-            secondary_style = (STYLES[top_idx[1]], float(round(probs[top_idx[1]]*100,2)))
-            embedding = image_features.squeeze(0).cpu().numpy().tolist()
+
+            embedding = image_features.squeeze(0).cpu().numpy().astype(float).tolist()
 
             return {
-                "main_style": main_style[0],
-                "main_confidence": main_style[1],
-                "secondary_style": secondary_style[0],
-                "secondary_confidence": secondary_style[1],
-                "embedding_dim": len(embedding),
+                "main_style": STYLES[top_idx[0]],
+                "main_confidence": float(round(probs[top_idx[0]] * 100, 2)),
+                "secondary_style": STYLES[top_idx[1]],
+                "secondary_confidence": float(round(probs[top_idx[1]] * 100, 2)),
+                "embedding_dim": int(len(embedding)),
                 "embedding": embedding
             }
 
     def postprocess(self, inference_output):
-        return inference_output
+        return [inference_output]

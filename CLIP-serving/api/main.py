@@ -26,7 +26,7 @@ async def classify(file: UploadFile = File(...)):
     try:
         # Отправляем изображение на TorchServe с токеном
         headers = {"Authorization": f"Bearer {TORCHSERVE_TOKEN}"} if TORCHSERVE_TOKEN else {}
-        files = {"data": ("image.jpg", io.BytesIO(image_bytes), file.content_type)}
+        files = {"data": ("image.jpg", image_bytes, file.content_type)}
         response = requests.post(TORCHSERVE_URL, files=files, headers=headers)
         response.raise_for_status()
         output = response.json()

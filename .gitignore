@@ -54,4 +54,6 @@ wandb/
 #large models
 SigLIP-serving/model-server/model-store/
 CLIP-serving/model-server/model-store/
+CLIP-serving/model-server/logs/
 CLIP-serving/clip-model/
+CLIP-serving/clip-model-safe/
